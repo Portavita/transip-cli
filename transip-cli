@@ -1,0 +1,171 @@
+#!/usr/bin/php
+<?php
+/**
+ * This is a basic CLI for the TransIP BV XML/SOAP API.
+ * Do not expect much, it might eventually grow, but was originally designed for basic snapshotting ops.
+ * 
+ * (c) 2017, Nuno Tavares <n.tavares@portavita.eu>
+ */
+
+require_once('PortavitaTransIP.php');
+
+define('DNS_DEFAULT_TTL', 86400);
+
+function printSyntax() {
+    print "Syntax: ".$_SERVER['argv'][0]." -c <command> [<opts>] | -h
+Commands:
+
+ VPS Management commands:
+   list-vps                   
+      Lists all VPS
+   list-snapshots --name <vmname> 
+      Lists snapshots from <vmname>
+   create-snapshot --name <vmname>
+      Create snapshot from <vmname>
+   remove-snapshot --name <vmname> --snapshot <snapshotname>
+    Remove <snapshotname> from <vmname>
+   revert-snapshot --name <vmname> --snapshot <snapshotname>
+      Reverts <vmname> to <snapshotname>. Beware that the machine is reverted, and you might loose data!
+
+   Opts:
+   --format=<fmt>          Output formats in: php, csv, tab. NOTE: all formats except php are non-verbose!
+   --name <vmname>         Name of the VM (do not confuse with the Description in the Control Panel!)
+   --snapshot <text>       The 'name' of the snapshot
+   --description <text>    The 'name' of the snapshot
+
+ Domain Management commands:
+   list-domains
+      List all managed domains
+   list-dns-records
+      Lists all DNS records (zone) from a --domain
+   create-dns-record
+   change-dns-record
+      Create or change DNS (resp.) a record entry for domain --domain
+   remove-dns-record
+      Delete a DNS record entry for domain --domain
+   Opts:
+   --domain <domain>       The domain to alter the record
+   --name <name>           The record name you're managing
+   --type <rec-type>       The type of DNS record
+   --ttl <secs>            TTL for the record (default: " . DNS_DEFAULT_TTL . " secs)
+   --target <target>       The value of the record (to what it resolves)
+
+";
+}
+
+
+$optind = null;
+$options = getopt("hc:", array( "name:", "description::", "snapshot:", "format:", "domain:", "type:", "ttl::", "target:" ));
+
+$cli = new PortavitaTransIP();
+
+$cli->loadCredentials();
+
+if (!isset($options['c'])) {
+    $cli->error("Command not specified.\n");
+    printSyntax();
+    exit(1);
+}
+
+if (array_key_exists('format', $options)) {
+    $cli->setOutputFormat($options['format']);
+}
+
+if (isset($options['h'])) {
+    printSyntax();
+    exit(0);
+}
+
+switch ($options['c']) {
+    case 'list-vps':
+        $cli->listVps();
+        break;
+    case 'list-snapshots':
+        if ( empty($options['name']) ) {
+            $cli->error('Insufficient arguments. Required: --name');
+            printSyntax();
+            exit(1);
+        }
+        $cli->listSnapshots($options['name']);
+        break;
+    case 'create-snapshot':
+        if ( empty($options['name']) ) {
+            $cli->error('Insufficient arguments. Required: --name');
+            printSyntax();
+            exit(1);
+        }
+        if ( $cli->createSnapshot($options['name'], isset($options['description'])?$options['description']:'') ) {
+            print "Starting snapshot.\n";
+        }
+        break;
+    case 'remove-snapshot':
+        if ( empty($options['name']) or empty($options['snapshot']) ) {
+            $cli->error('Insufficient arguments. Required: --name, --snapshot');
+            printSyntax();
+            exit(1);
+        }
+        if ( $cli->removeSnapshot($options['name'], $options['snapshot']) ) {
+            print "Removing snapshot.\n";
+        }
+        break;
+    case 'revert-snapshot':
+        if ( empty($options['name']) or empty($options['snapshot']) ) {
+            $cli->error('Insufficient arguments. Required: --name, --snapshot');
+            printSyntax();
+            exit(1);
+        }
+        if ( $cli->revertSnapshot($options['name'], $options['snapshot']) ) {
+            print "Reverting snapshot.\n";
+        }
+        break;
+    case 'list-domains':
+        $cli->listDomains();
+        break;
+    case 'create-dns-record':
+    case 'change-dns-record':
+        if ( empty($options['ttl']) ) {
+            $options['ttl'] = DNS_DEFAULT_TTL;
+        }
+        if ( empty($options['domain']) or empty($options['name']) or empty($options['type']) or empty($options['target']) ) {
+            $cli->error('Insufficient arguments. Required: --domain, --name, --type, --target');
+            printSyntax();
+            exit(1);
+        }
+        if ( $cli->modifyDNSRecord($options['domain'], $options['name'], $options['ttl'], $options['type'], $options['target']) ) {
+            print "Edited DNS entry.\n";
+        }
+        break;
+    case 'remove-dns-record':
+        if ( empty($options['domain']) or empty($options['name']) or empty($options['type']) ) {
+            $cli->error('Insufficient arguments. Required: --domain, --name, --type');
+            printSyntax();
+            exit(1);
+        }
+        if ( $cli->removeDNSRecord($options['domain'], $options['name'], $options['type']) ) {
+            print "Removed DNS entry.\n";
+        }
+        break;
+    case 'list-dns-records':
+        if ( empty($options['domain']) ) {
+            $cli->error('Insufficient arguments. Required: --domain');
+            printSyntax();
+            exit(1);
+        }
+        $cli->listDNSRecords($options['domain']);
+        break;
+    case 'list-nameservers':
+        if ( empty($options['domain']) ) {
+            $cli->error('Insufficient arguments. Required: --domain');
+            printSyntax();
+            exit(1);
+        }
+        $cli->listZoneNameservers($options['domain']);
+        break;
+    default:
+        $cli->error('Invalid command.');
+        printSyntax();
+        exit(1);
+}
+
+
+
