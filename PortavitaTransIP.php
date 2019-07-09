@@ -1,7 +1,7 @@
 <?php
 /**
  * This is a wrapper class to abstract all TransIP API core methods from regular/simpler usage.
- * 
+ *
  * (c) 2017, Nuno Tavares <n.tavares@portavita.eu>
  */
 
@@ -35,7 +35,7 @@ class PortavitaTransIP
 	 *
 	 * @var string
 	 */
-	public $_outputColumns = array( 
+	public $_outputColumns = array(
         PortavitaTransIP::OUTPUT_CTX_VPS => array(
             'Transip_Vps' => array( 'name', 'description', 'operatingSystem', 'status', 'ipAddress' ),
             'Transip_Snapshot' => array( 'name', 'description', 'dateTimeCreate' ),
@@ -50,7 +50,7 @@ class PortavitaTransIP
      * Just a helper array to help converting string record types into the necessary constants.
      * Kind of silly since the consts resolve to the exact same string, but good practice
      */
-    public $_strToRecType = array( 
+    public $_strToRecType = array(
         'A'     => Transip_DnsEntry::TYPE_A,
         'AAAA'  => Transip_DnsEntry::TYPE_AAAA,
         'CNAME' => Transip_DnsEntry::TYPE_CNAME,
@@ -59,7 +59,7 @@ class PortavitaTransIP
         'TXT'   => Transip_DnsEntry::TYPE_TXT,
         'SRV'   => Transip_DnsEntry::TYPE_SRV,
         );
-        
+
 
     /* **********************************************************************************************************
      * COMMON HELPER FUNCTIONS
@@ -110,7 +110,7 @@ class PortavitaTransIP
             print "\n";
         }
     }
-    
+
     function __outputArrayCsv($var) {
         if (count($var)<0) {
             return false;
@@ -230,7 +230,7 @@ class PortavitaTransIP
         try {
             // Get a list of all Vps objects
             $domainList = Transip_DomainService::getDomainNames();
-            
+
             if ( count($domainList)<=0 ) {
                 echo 'No domains to list.';
                 return true;
@@ -245,19 +245,19 @@ class PortavitaTransIP
             echo 'An error occurred: ' . $f->getMessage(), PHP_EOL;
         }
     }
-        
+
     function _getRecordType($strType) {
         if (!array_key_exists($strType, $this->_strToRecType)) {
             return 'UNKNOWN';
         }
         return $this->_strToRecType[$strType];
     }
-    
+
     /*
-     * This method will either modify and existing DNS record, if it exists, 
-     * or add it, if it doesn't. This is made by fetching the entire zone, and 
+     * This method will either modify and existing DNS record, if it exists,
+     * or add it, if it doesn't. This is made by fetching the entire zone, and
      * editting it.
-     * 
+     *
      * Filed a FeatureRequest for individual record maintenance support in the API:
      * * https://www.transip.nl/knowledgebase/idee/701-api-support-editing-single-record/
      */
@@ -361,5 +361,25 @@ class PortavitaTransIP
         }
         return false;
     }
-        
+
+    function setZoneNameservers($domainName, $nameservers) {
+        try
+        {
+            $this->setOutputContext(PortavitaTransIP::OUTPUT_CTX_DOMAIN);
+            $nsobj = array();
+            foreach ($nameservers as $ns) {
+                $nsobj[] = new Transip_Nameserver($ns);
+            }
+            Transip_DomainService::setNameservers($domainName, $nsobj);
+            return true;
+        }
+        catch(SoapFault $f)
+        {
+            // It is possible that an error occurs when connecting to the TransIP Soap API,
+            // those errors will be thrown as a SoapFault exception.
+            echo 'An error occurred: ' . $f->getMessage(), PHP_EOL;
+        }
+        return false;
+    }
+
 }

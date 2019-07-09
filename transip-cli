@@ -3,7 +3,7 @@
 /**
  * This is a basic CLI for the TransIP BV XML/SOAP API.
  * Do not expect much, it might eventually grow, but was originally designed for basic snapshotting ops.
- * 
+ *
  * (c) 2017, Nuno Tavares <n.tavares@portavita.eu>
  */
 
@@ -16,9 +16,9 @@ function printSyntax() {
 Commands:
 
  VPS Management commands:
-   list-vps                   
+   list-vps
       Lists all VPS
-   list-snapshots --name <vmname> 
+   list-snapshots --name <vmname>
       Lists snapshots from <vmname>
    create-snapshot --name <vmname>
       Create snapshot from <vmname>
@@ -28,7 +28,6 @@ Commands:
       Reverts <vmname> to <snapshotname>. Beware that the machine is reverted, and you might loose data!
 
    Opts:
-   --format=<fmt>          Output formats in: php, csv, tab. NOTE: all formats except php are non-verbose!
    --name <vmname>         Name of the VM (do not confuse with the Description in the Control Panel!)
    --snapshot <text>       The 'name' of the snapshot
    --description <text>    The 'name' of the snapshot
@@ -43,19 +42,26 @@ Commands:
       Create or change DNS (resp.) a record entry for domain --domain
    remove-dns-record
       Delete a DNS record entry for domain --domain
+   list-nameservers
+   set-nameservers
+      Lists or defines the nameservers for domain --domain
    Opts:
    --domain <domain>       The domain to alter the record
    --name <name>           The record name you're managing
    --type <rec-type>       The type of DNS record
    --ttl <secs>            TTL for the record (default: " . DNS_DEFAULT_TTL . " secs)
    --target <target>       The value of the record (to what it resolves)
+   --nameservers <ns1,ns2> Comma-separated list of nameservers
+
+General options:
+   --format=<fmt>          Output formats in: php, csv, tab. NOTE: all formats except php are non-verbose!
 
 ";
 }
 
 
 $optind = null;
-$options = getopt("hc:", array( "name:", "description::", "snapshot:", "format:", "domain:", "type:", "ttl::", "target:" ));
+$options = getopt("hc:", array( "name:", "description::", "snapshot:", "format:", "domain:", "type:", "ttl::", "target:", "nameservers:" ));
 
 $cli = new PortavitaTransIP();
 
@@ -160,6 +166,15 @@ switch ($options['c']) {
             exit(1);
         }
         $cli->listZoneNameservers($options['domain']);
+        break;
+    case 'set-nameservers':
+        if ( empty($options['domain']) or empty($options['nameservers']) ) {
+            $cli->error('Insufficient arguments. Required: --domain, --nameservers');
+            printSyntax();
+            exit(1);
+        }
+        $nameservers = explode(',', $options['nameservers']);
+        $cli->setZoneNameservers($options['domain'], $nameservers);
         break;
     default:
         $cli->error('Invalid command.');
